@@ -21,7 +21,7 @@ class Document(models.Model) :
         editable=False
     )
     fileName = models.CharField(max_length=100)
-    cid = models.CharField(max_length=100)
+    cid = models.CharField(max_length=100, null=True, blank=True)
     createdat = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 

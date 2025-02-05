@@ -15,6 +15,8 @@ from rest_framework.permissions import IsAuthenticated
 from .models import CustomUser
 from .serializers import *
 
+from .IPFSservices.ipfsServices import IPFSService
+
 class showMe(APIView) :
     def get(self, request) :
         user = self.request.user
@@ -74,3 +76,55 @@ class EmailVerification(APIView) :
             return Response({"status" : "verified"})
         else :
             return Response(f"some error occured")
+
+
+class DocumentOperations(APIView) :
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, uid = None) :
+        if uid == None :
+            return self.getAllDocuments(request)
+        else :
+            return self.getDocumentById(request, uid)
+
+    def getAllDocuments(self, request) :
+        documents = Document.objects.filter(user = self.request.user)
+        serializer = DocumentSerializer(documents, many = True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def getDocumentById(self, request, uid) :
+        try :
+            document = Document.objects.get(uid = uid)
+            serializer = DocumentSerializer(document, many = False)
+            return Response(serializer.data)
+        except :
+            return Response({"message" : "document not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def post(self, request) :
+        # body : {fileName, file}
+        fileName = request.data["fileName"]
+        file = request.data["file"]
+
+        ipfs_service = IPFSService()
+        cid = ipfs_service.upload_file(file, fileName)
+
+        documentObject = Document.objects.create(
+            fileName = fileName,
+            cid = cid,
+            user = self.request.user
+        )
+        documentObject.save()
+
+        documentObject = DocumentSerializer(documentObject, many=False)
+
+        return Response(documentObject.data, status=status.HTTP_201_CREATED)
+    
+    def delete(self, request, uid) :
+        try :
+            document = Document.objects.get(uid = uid)
+            document.delete()
+            return Response({"message" : "document deleted successfully"}, status=status.HTTP_200_OK)
+        except :
+            return Response({"message" : "document not found"}, status=status.HTTP_404_NOT_FOUND)
+
